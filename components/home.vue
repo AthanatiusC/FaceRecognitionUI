@@ -1,14 +1,16 @@
 <template>
     <div class="fluid-container" style="margin:20px">
-        <div class="stream-display" v-for="(stream,key) in streams" :key="stream">
-                <div class="stream-holder" >
-                        <img class="img" draggable="false" v-bind:src="'data:image/gif;base64,'+ stream" alt="Stream">
-                        <h3 class="stream-name">Camera : {{key}}</h3>
+        <div class="stream-display" v-for="cam in online_cameras" :key="cam.index">
+            <NLink :to="{ path: '/streaming', query: { id: cam }}">
+                <div class="stream-holder" v-if="Object.keys(streams).length" >
+                        <img class="img" draggable="false" v-bind:src="'data:image/gif;base64,'+ streams[cam].frame" alt="Stream">
+                        <div class="divider"></div>
+                        <div class="stream-name">
+                            <b>Address : {{cam.index}}</b>
+                            <b v-if="cam==0">Webcam</b>
+                        </div>
                 </div>
-                
-                <NLink :to="{ path: '/streaming', query: { id: '0' }}">
-                GO
-                </NLink>
+            </NLink>
         </div>
         <transition-group name="list" tag="p">
             <div class="pop-up" v-for="mess in message" v-bind:key="mess">
@@ -31,12 +33,22 @@
         border-radius: 10px;
         height:300px;
         width:400px;
+        margin:10px;
+        border: solid 1px #312f40;
+    }
+    .stream-display{
+        display:inline-block;
+        margin: 10px;
     }
     .stream-holder{
-        display:inline-block;
-        border: solid 1px #312f40;
+        background-color: #1d1b26;
         text-align: center;
         border-radius: 5px;
+        box-shadow: 0px 0px 20px 0px rgba(0,0,0,0.75);
+    }
+    .stream-name{
+        display:block;
+        margin: 5px;
     }
     .pop-up{
         background-color:#292736;
@@ -67,7 +79,7 @@
 export default {
     data(){
         return{
-            online_cameras:"",
+            online_cameras:[],
             streams:{},
             message : []
         }
@@ -80,31 +92,34 @@ export default {
     },
     methods:{
         initSocket(){
+            this.socket.emit('multi-stream')
+            this.socket.on('multi-stream-recieve',(response)=>{
+                this.streams =response
+                // console.log(this.streams)
+                // console.log()
+            })
             this.socket.on("online_cameras",(cam_list)=>{
                 for(var cam in cam_list){
-                    this.socket.emit('stream',cam)
-                    this.socket.on('serverstream'+cam,(response)=>{
-                        this.streams = {}
-                        this.streams = {[cam]:response}
-                        // console.log("responded")
-                    })
+                    this.online_cameras.splice(0,0,Number(cam))
                 }
             })
-            this.online_cameras = this.streams.length
-            // this.socket.emit('recognized')
-            this.socket.on('result',(result)=>{
-                // console.log(result)
-            })
+            console.log(this.streams)
             this.socket.on('message',(result)=>{
                 this.message.push(result)
                 setTimeout(() => {
                     this.message.pop()
                 }, 3000);
             })
-        },
-        test(){
-            console.log('test')
+        },isUndefined(item){
+            if(typeof(item) == "undefined"){
+                return true
+            }else{
+                false
+            }
         }
+    },beforeDestroy(){
+        this.socket.emit("multi-stream-stop")
+        console.log("closed")
     }
 
 }
